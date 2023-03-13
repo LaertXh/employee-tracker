@@ -8,7 +8,7 @@ CREATE TABLE department(
     name VARCHAR(30)
 );
 
-CREATE TABLE role(
+CREATE TABLE roles(
     id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(30),
     salery DECIMAL,
@@ -25,7 +25,7 @@ CREATE TABLE employee(
     role_id INT,
     manager_id INT, 
     FOREIGN KEY (role_id)
-    REFERENCES role(id)
+    REFERENCES roles(id)
     ON DELETE SET NULL,
     FOREIGN KEY (manager_id)
     REFERENCES employee(id)
