@@ -14,6 +14,8 @@ const options = [
   "Quit",
 ];
 
+let depList = [];
+
 //DATABASE CONNECTION
 const db = mysql.createConnection(
   {
@@ -33,6 +35,21 @@ const printTable = (query) => {
     console.table(result);
     init();
   });
+};
+
+//get the current department list in synch
+const updateDepartmentList = () => {
+  db.query(`select * from department;`, (err, result) => {
+    depList = result;
+  });
+};
+
+const depId = (depName) => {
+  for (dep of depList) {
+    if (dep.name === depName) {
+      return dep.id;
+    }
+  }
 };
 
 const init = () => {
@@ -58,11 +75,6 @@ const init = () => {
       }
       //add a role
       else if (choice.menu === options[4]) {
-        const departmentList = [];
-        // db.query(`select * from department;`, (err, result) => {
-        //   departmentList = result;
-        //   //result.map((obj) => obj.id);
-        // });
         inquirer
           .prompt([
             {
@@ -79,22 +91,20 @@ const init = () => {
               type: "list",
               message: "Choose a Department",
               name: "department",
-              options: function () {
-                await db.query(`select * from department;`, (err, result) => {
-                  return result.map((obj) => obj.id);
-                });
-              },
+              choices: depList,
             },
           ])
           .then((answer) => {
-            // db.query(
-            //   `INSERT INTO roles(title, salary, )
-            // VALUES ("${answer.name}")`,
-            //   (err, result) => {
-            //     console.log(answer.name, "was entered into Department table");
-            //     return init();
-            //   }
-            // );
+            db.query(
+              `INSERT INTO roles(title, salary, department_id)
+            VALUES ("${answer.name}", ${parseInt(answer.salary)}, ${depId(
+                answer.department
+              )})`,
+              (err, result) => {
+                console.log(answer.name, "was entered into Roles table");
+                return init();
+              }
+            );
           });
       }
       //view all employees
@@ -121,6 +131,7 @@ const init = () => {
             VALUES ("${answer.name}")`,
               (err, result) => {
                 console.log(answer.name, "was entered into Department table");
+                updateDepartmentList();
                 return init();
               }
             );
@@ -133,4 +144,5 @@ const init = () => {
 };
 
 //INITIALIZATIONS
+updateDepartmentList();
 init();
