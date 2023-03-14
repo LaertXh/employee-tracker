@@ -15,6 +15,8 @@ const options = [
 ];
 
 let depList = [];
+let roleList = [];
+let empList = [];
 
 //DATABASE CONNECTION
 const db = mysql.createConnection(
@@ -37,19 +39,35 @@ const printTable = (query) => {
   });
 };
 
-//get the current department list in synch
+//get the current department list
 const updateDepartmentList = () => {
   db.query(`select * from department;`, (err, result) => {
     depList = result;
   });
 };
-
-const depId = (depName) => {
-  for (dep of depList) {
-    if (dep.name === depName) {
-      return dep.id;
+//given a name and a list, find the element and return the id
+const getId = (nameInput, list) => {
+  for (elem of list) {
+    if (elem.name === nameInput) {
+      return elem.id;
     }
   }
+};
+//get the current role list
+const updateRoleList = () => {
+  db.query(`select r.id, r.title as "name" from roles as r;`, (err, result) => {
+    roleList = result;
+  });
+};
+
+//get the current employee list
+const updateEmployeeList = () => {
+  db.query(
+    `select e.id, concat(e.first_name, e.last_name) as "name" from employee as e;`,
+    (err, result) => {
+      empList = result;
+    }
+  );
 };
 
 const init = () => {
@@ -64,8 +82,62 @@ const init = () => {
       },
     ])
     .then((choice) => {
+      //view all employees
+      if (choice.menu === options[0]) {
+        printTable(`SELECT e.id, e.first_name AS "First Name", e.last_name AS "Last Name", r.title as "Title", d.name as "Department", r.salary as "Salary", concat(employee.first_name, ' ', employee.last_name) as "Manager" 
+                FROM employee AS e 
+                LEFT JOIN roles AS r on e.role_id = r.id 
+                LEFT JOIN department AS d ON r.department_id = d.id
+                LEFT JOIN employee on e.manager_id = employee.id`);
+      }
+      //add an employee
+      else if (choice.menu === options[1]) {
+        inquirer
+          .prompt([
+            {
+              type: "input",
+              message: "Enter Employee's First Name",
+              name: "firstName",
+            },
+            {
+              type: "input",
+              message: "Enter Employee's Last Name",
+              name: "lastName",
+            },
+            {
+              type: "list",
+              message: "What is the employee's role?",
+              name: "role",
+              choices: roleList,
+            },
+            {
+              type: "list",
+              message: "Who is the employee's manager?",
+              name: "manager",
+              choices: empList,
+            },
+          ])
+          .then((answer) => {
+            db.query(
+              `INSERT INTO employee(first_name, last_name, role_id, manager_id)
+            VALUES ("${answer.firstName}", ${answer.lastName}, ${getId(
+                answer.role,
+                roleList
+              )}, ${getId(answer.manager, empList)})`,
+              (err, result) => {
+                console.log(
+                  answer.firstName,
+                  answer.lastName,
+                  "was entered into Employee table"
+                );
+                updateEmployeeList();
+                return init();
+              }
+            );
+          });
+      }
       //View All Departments
-      if (choice.menu === options[5]) {
+      else if (choice.menu === options[5]) {
         printTable("SELECT * FROM department;");
       }
       //View All Roles
@@ -97,23 +169,17 @@ const init = () => {
           .then((answer) => {
             db.query(
               `INSERT INTO roles(title, salary, department_id)
-            VALUES ("${answer.name}", ${parseInt(answer.salary)}, ${depId(
-                answer.department
+            VALUES ("${answer.name}", ${parseInt(answer.salary)}, ${getId(
+                answer.department,
+                depList
               )})`,
               (err, result) => {
                 console.log(answer.name, "was entered into Roles table");
+                updateRoleList();
                 return init();
               }
             );
           });
-      }
-      //view all employees
-      else if (choice.menu === options[0]) {
-        printTable(`SELECT e.id, e.first_name AS "First Name", e.last_name AS "Last Name", r.title as "Title", d.name as "Department", r.salary as "Salary", concat(employee.first_name, ' ', employee.last_name) as "Manager" 
-        FROM employee AS e 
-        LEFT JOIN roles AS r on e.role_id = r.id 
-        LEFT JOIN department AS d ON r.department_id = d.id
-        LEFT JOIN employee on e.manager_id = employee.id`);
       }
       //add department
       else if (choice.menu === options[6]) {
@@ -144,5 +210,7 @@ const init = () => {
 };
 
 //INITIALIZATIONS
+updateEmployeeList();
 updateDepartmentList();
+updateRoleList();
 init();
