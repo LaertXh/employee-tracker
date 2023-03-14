@@ -11,6 +11,7 @@ const options = [
   "Add Role",
   "View All Departments",
   "Add Department",
+  "View Department Utilized Budget",
   "Quit",
 ];
 
@@ -47,6 +48,7 @@ const updateDepartmentList = () => {
 };
 //given a name and a list, find the element and return the id
 const getId = (nameInput, list) => {
+  if (nameInput === "None") return null;
   for (elem of list) {
     if (elem.name === nameInput) {
       return elem.id;
@@ -63,9 +65,10 @@ const updateRoleList = () => {
 //get the current employee list
 const updateEmployeeList = () => {
   db.query(
-    `select e.id, concat(e.first_name, e.last_name) as "name" from employee as e;`,
+    `select e.id, concat(e.first_name," ", e.last_name) as "name" from employee as e;`,
     (err, result) => {
       empList = result;
+      empList.push("None");
     }
   );
 };
@@ -120,7 +123,7 @@ const init = () => {
           .then((answer) => {
             db.query(
               `INSERT INTO employee(first_name, last_name, role_id, manager_id)
-            VALUES ("${answer.firstName}", ${answer.lastName}, ${getId(
+            VALUES ("${answer.firstName}", "${answer.lastName}", ${getId(
                 answer.role,
                 roleList
               )}, ${getId(answer.manager, empList)})`,
@@ -136,14 +139,43 @@ const init = () => {
             );
           });
       }
-      //View All Departments
-      else if (choice.menu === options[5]) {
-        printTable("SELECT * FROM department;");
+      //update employee role
+      else if (choice.menu === options[2]) {
+        inquirer
+          .prompt([
+            {
+              type: "list",
+              message: "Choose a employee to update:",
+              name: "emp",
+              choices: empList,
+            },
+            {
+              type: "list",
+              message: "Choose which role you want to assign:",
+              name: "role",
+              choices: roleList,
+            },
+          ])
+          .then((choice) => {
+            db.query(
+              `UPDATE employee SET role_id = ${getId(
+                choice.role,
+                roleList
+              )} WHERE id = ${getId(choice.emp, empList)}`,
+              (err, result) => {
+                updateEmployeeList();
+                err
+                  ? console.log(err)
+                  : console.log(choice.emp, "is now a", choice.role);
+                return init();
+              }
+            );
+          });
       }
       //View All Roles
       else if (choice.menu === options[3]) {
         printTable(`SELECT r.id, r.title, d.name AS "department", r.salary
-        FROM roles AS r LEFT JOIN department AS d ON r.department_id = d.id;`);
+              FROM roles AS r LEFT JOIN department AS d ON r.department_id = d.id;`);
       }
       //add a role
       else if (choice.menu === options[4]) {
@@ -169,7 +201,7 @@ const init = () => {
           .then((answer) => {
             db.query(
               `INSERT INTO roles(title, salary, department_id)
-            VALUES ("${answer.name}", ${parseInt(answer.salary)}, ${getId(
+                  VALUES ("${answer.name}", ${parseInt(answer.salary)}, ${getId(
                 answer.department,
                 depList
               )})`,
@@ -180,6 +212,10 @@ const init = () => {
               }
             );
           });
+      }
+      //View All Departments
+      else if (choice.menu === options[5]) {
+        printTable("SELECT * FROM department;");
       }
       //add department
       else if (choice.menu === options[6]) {
@@ -202,6 +238,14 @@ const init = () => {
               }
             );
           });
+      }
+      //view department budget
+      else if (choice.menu === options[7]) {
+        printTable(`SELECT d.name as "Department Name", COALESCE(sum(r.salary), 0) AS "Total Budget $"
+        FROM department as d 
+        LEFT JOIN roles AS r ON d.id = r.department_id
+        LEFT JOIN employee AS e ON r.id = e.role_id
+        GROUP BY d.name;`);
       } else {
         db.close();
         return;
